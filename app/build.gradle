@@ -93,7 +93,7 @@ dependencies {
 
     //liquibase
     compile('org.liquibase:liquibase-core')
-    // exclude liquibase from tests
+    // exclude running liquibase script for tests
     configurations.testCompile.exclude(group: 'org.liquibase:', module: 'liquibase-core')
 
     // misc
