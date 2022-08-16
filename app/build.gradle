@@ -93,6 +93,8 @@ dependencies {
 
     //liquibase
     compile('org.liquibase:liquibase-core')
+    // exclude liquibase from tests
+    configurations.testCompile.exclude(group: 'org.liquibase:', module: 'liquibase-core')
 
     // misc
     compile 'org.apache.httpcomponents:httpclient'
