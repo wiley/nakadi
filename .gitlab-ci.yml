@@ -8,12 +8,37 @@ variables:
   AUTO_DEVOPS_DEPLOY_DEBUG: "true"
 
 build:
+  stage: build
+  image: 'registry.gitlab.com/gitlab-org/cluster-integration/auto-build-image:v1.12.0'
+  tags:
+    - dev
   variables:
-    BP_JVM_VERSION: "11.0.16"
+    # Instruct Docker not to start over TLS.
+    DOCKER_TLS_CERTDIR: ""
+    # Improve performance with overlayfs.
+    DOCKER_DRIVER: overlay2
     BP_GRADLE_BUILT_ARTIFACT: "app/build/libs/*.[jw]ar"
     BP_GRADLE_BUILD_ARGUMENTS: ":app:bootJar"
-    AUTO_DEVOPS_BUILD_IMAGE_FORWARDED_CI_VARIABLES: "BP_GRADLE_BUILT_ARTIFACT,BP_GRADLE_BUILD_ARGUMENTS,BP_JVM_VERSION"
-
+    AUTO_DEVOPS_BUILD_IMAGE_FORWARDED_CI_VARIABLES: "BP_GRADLE_BUILT_ARTIFACT,BP_GRADLE_BUILD_ARGUMENTS"
+#    BP_JVM_VERSION: "11.*"
+#    BP_GRADLE_BUILT_ARTIFACT: "app/build/libs/*.[jw]ar"
+#    BP_GRADLE_BUILD_ARGUMENTS: ":app:bootJar"
+#    AUTO_DEVOPS_BUILD_IMAGE_FORWARDED_CI_VARIABLES: "BP_GRADLE_BUILT_ARTIFACT,BP_GRADLE_BUILD_ARGUMENTS,BP_JVM_VERSION"
+  services:
+    - name: 'artifactory.aws.wiley.com/docker/tc/docker:${DOCKER_VERSION}-dind'
+      command: ['--tls=false', '--host=tcp://0.0.0.0:2375']
+  before_script:
+    - export
+    - |
+      export CI_APPLICATION_REPOSITORY=${CI_APPLICATION_REPOSITORY:-$CI_REGISTRY_IMAGE}
+      export CI_APPLICATION_TAG=${CI_APPLICATION_TAG:-v$(cat VERSION)}
+  script:
+    - /build/build.sh
+  rules:
+    - if: '$CI_COMMIT_TAG'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'  # run on default branch
+    - if: '$CI_EXTERNAL_PULL_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH'  # run on default branch pull requests
 
 review:
   variables:
