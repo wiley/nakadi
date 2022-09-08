@@ -1,12 +1,86 @@
-include:
-  - project: wiley-sons/tc-gitlab-templates
-    file: autodevops-gradle.gitlab-ci.yml
-    ref: latest_image
+image: alpine:latest
 
 variables:
   APP_NAME: eventhub
   AUTO_DEVOPS_DEPLOY_DEBUG: "true"
   TEST_DISABLED: "true"
+
+  POSTGRES_ENABLED: "false"
+  BROWSER_PERFORMANCE_DISABLED: "false"
+  LOAD_PERFORMANCE_DISABLED: "false"
+
+  DOCKER_DRIVER: overlay2
+  ROLLOUT_RESOURCE_TYPE: deployment
+  DOCKER_TLS_CERTDIR: ""  # https://gitlab.com/gitlab-org/gitlab-runner/issues/4501
+  DOCKER_VERSION: "20.10.6"
+
+  CI_REGISTRY: "artifactory.aws.wiley.com/docker"
+  CI_REGISTRY_IMAGE: "$CI_REGISTRY/tc/$APP_NAME"
+
+  SONAR_HOST_URL: "https://sonarqube.aws.wiley.com"
+
+  AUTO_DEVOPS_BUILD_IMAGE_CNB_ENABLED: "true"
+  # AUTO_DEVOPS_BUILD_IMAGE_CNB_BUILDER: artifactory.aws.wiley.com/docker/tc/heroku/buildpacks:20 # disabling since artifactory is unstable
+  # AUTO_DEVOPS_BUILD_IMAGE_CNB_BUILDER: heroku/buildpacks:20
+  AUTO_DEVOPS_BUILD_IMAGE_CNB_BUILDER: "gcr.io/paketo-buildpacks/builder:base"
+
+  AUTO_DEVOPS_ATOMIC_RELEASE: "false"
+  AUTO_DEVOPS_CHART_REPOSITORY: https://artifactory.aws.wiley.com/artifactory/helm
+  AUTO_DEVOPS_CHART: helm/tc-auto-deploy-app
+  AUTO_DEVOPS_CHART_REPOSITORY_NAME: helm
+
+  SAST_DISABLED: "true"
+
+stages:
+  - test
+  - build
+  - review  # create review environment .gitlab/deploy.gitlab-ci.yml
+  - dev
+
+workflow:
+  rules:
+    - if: '$CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_EXTERNAL_PULL_REQUEST_TARGET_BRANCH_NAME != $CI_DEFAULT_BRANCH'  # run only on default branch or default branch pull requests
+      when: never
+    - if: '$BUILDPACK_URL || $AUTO_DEVOPS_EXPLICITLY_ENABLED == "1" || $DOCKERFILE_PATH'
+
+    # https://github.com/heroku/heroku-buildpack-gradle
+    - exists:
+        - gradlew
+        - build.gradle
+        - settings.gradle
+
+test:
+  variables:
+    # Instruct Testcontainers to use the daemon of DinD.
+    DOCKER_HOST: "tcp://docker:2375"
+    # Instruct Docker not to start over TLS.
+    DOCKER_TLS_CERTDIR: ""
+    # Improve performance with overlayfs.
+    DOCKER_DRIVER: overlay2
+  tags:
+    - dev  # gitlab runner tag. Always run tests in dev
+  services:
+    # - name: 'artifactory.aws.wiley.com/docker/docker:${DOCKER_VERSION}-dind' # disabling since artifactory is unstable
+    - name: "docker:${DOCKER_VERSION}-dind"
+      alias: docker  # this will be the DOCKER_HOST
+  stage: test
+  image: artifactory.aws.wiley.com/docker/tc/gliderlabs/herokuish:latest-20
+  script:
+    # Point maven at our custom maven settings.xml configured to use the Artifactory maven repository
+    # Note that this is done here rather than in variables above due to
+    # https://gitlab.com/gitlab-org/gitlab-foss/-/issues/65763
+    - export MAVEN_SETTINGS_PATH=$MAVEN_SETTINGS_XML
+    - cat $MAVEN_SETTINGS_PATH
+    - export
+    - cp -R . /tmp/app
+    - /bin/herokuish buildpack test
+  rules:
+    - if: "$TEST_DISABLED"
+      when: never
+    - if: "$CI_COMMIT_TAG"
+      when: never
+    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"  # run on default branch
+    - if: "$CI_EXTERNAL_PULL_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH"  # run on default branch pull requests
 
 build:
   stage: build
@@ -21,10 +95,10 @@ build:
     BP_GRADLE_BUILT_ARTIFACT: "app/build/libs/*.[jw]ar"
     BP_GRADLE_BUILD_ARGUMENTS: ":app:bootJar"
     AUTO_DEVOPS_BUILD_IMAGE_FORWARDED_CI_VARIABLES: "BP_GRADLE_BUILT_ARTIFACT,BP_GRADLE_BUILD_ARGUMENTS"
-#    BP_JVM_VERSION: "11.*"
-#    BP_GRADLE_BUILT_ARTIFACT: "app/build/libs/*.[jw]ar"
-#    BP_GRADLE_BUILD_ARGUMENTS: ":app:bootJar"
-#    AUTO_DEVOPS_BUILD_IMAGE_FORWARDED_CI_VARIABLES: "BP_GRADLE_BUILT_ARTIFACT,BP_GRADLE_BUILD_ARGUMENTS,BP_JVM_VERSION"
+  #    BP_JVM_VERSION: "11.*"
+  #    BP_GRADLE_BUILT_ARTIFACT: "app/build/libs/*.[jw]ar"
+  #    BP_GRADLE_BUILD_ARGUMENTS: ":app:bootJar"
+  #    AUTO_DEVOPS_BUILD_IMAGE_FORWARDED_CI_VARIABLES: "BP_GRADLE_BUILT_ARTIFACT,BP_GRADLE_BUILD_ARGUMENTS,BP_JVM_VERSION"
   services:
     - name: 'artifactory.aws.wiley.com/docker/tc/docker:${DOCKER_VERSION}-dind'
       command: ['--tls=false', '--host=tcp://0.0.0.0:2375']
@@ -52,52 +126,150 @@ build:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'  # run on default branch
     - if: '$CI_EXTERNAL_PULL_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH'  # run on default branch pull requests
 
-review:
+.auto-deploy-base:
+  image: "registry.gitlab.com/gitlab-org/cluster-integration/auto-deploy-image:v2.11.2"
+  dependencies: []
+
+.auto-deploy:
+  extends: .auto-deploy-base
   variables:
+    HELM_RELEASE_NAME: $APP_NAME  # to ensure unique release names when deploying multiple apps to a single namespace
+  script:
+    - |
+      export CI_APPLICATION_REPOSITORY=${CI_APPLICATION_REPOSITORY:-$CI_REGISTRY_IMAGE}
+      export CI_APPLICATION_TAG=${CI_APPLICATION_TAG:-v$(cat VERSION)}
+    - auto-deploy check_kube_domain
+    - auto-deploy download_chart
+    - auto-deploy ensure_namespace
+    - auto-deploy create_secret
+    - auto-deploy deploy
+    - auto-deploy persist_environment_url
+  artifacts:
+    paths: [environment_url.txt]
+    when: always
+
+.default-deploy-rules:
+  rules:
+    - if: '$KUBE_NAMESPACE == null || $KUBE_NAMESPACE == ""'
+      when: never
+    - if: '$CI_KUBERNETES_ACTIVE == null || $CI_KUBERNETES_ACTIVE == ""'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'  # run on default branch
+
+review:
+  extends: .auto-deploy-base
+  stage: review
+  tags:
+    - dev  # gitlab runner tag, correspond to a environment
+  variables:
+    HELM_RELEASE_NAME: $APP_NAME-$CI_ENVIRONMENT_SLUG  # to ensure unique release names when deploying multiple apps to a single namespace
     KUBE_NAMESPACE: epdcs-review
     K8S_SECRET_SPRING_PROFILES_ACTIVE: review
     HELM_UPGRADE_VALUES_FILE: .gitlab/auto-deploy-values-review.yaml
-
-
-review-integrationtest:
-  when: manual
-  image: artifactory.aws.wiley.com/docker/openjdk:11-jdk
-  extends: .review-integration-test
-  variables:
-    ENVIRONMENT_HOST: environment_url.txt
   script:
-    - ./gradlew :acceptance-test:acceptanceTest
+    - export
+    - auto-deploy check_kube_domain
+    - auto-deploy download_chart
+    - auto-deploy ensure_namespace
+    - auto-deploy create_secret
+    - auto-deploy deploy
+    - auto-deploy persist_environment_url
+    - echo "DYNAMIC_ENVIRONMENT_URL=https://$APP_NAME-$CI_ENVIRONMENT_SLUG.$KUBE_INGRESS_BASE_DOMAIN" >> deploy.env
+  environment:
+    name: review/$CI_COMMIT_REF_NAME
+    url: https://$APP_NAME-$CI_ENVIRONMENT_SLUG.$KUBE_INGRESS_BASE_DOMAIN
+    kubernetes:
+      namespace: $KUBE_NAMESPACE
+    deployment_tier: development
+#    on_stop: stop_review
+    auto_stop_in: 3 days
+  artifacts:
+    paths: [environment_url.txt]
+    when: always
+    reports:  # The dependent jobs can access the variables set here
+      dotenv: deploy.env
+  allow_failure: false
+  rules:
+    - if: '$REVIEW_DISABLED == "true"'
+      when: never
+    - if: '$KUBE_NAMESPACE == null || $KUBE_NAMESPACE == ""'
+      when: never
+    - if: '$CI_KUBERNETES_ACTIVE == null || $CI_KUBERNETES_ACTIVE == ""'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      when: never
+    - if: '$CI_COMMIT_TAG'
+      when: never
+    - if: '$CI_EXTERNAL_PULL_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH'  # run on default branch pull requests
+
 
 dev:
+  extends: .auto-deploy
+  stage: dev
+  tags:
+    - dev  # gitlab runner tag, correspond to a environment
   variables:
     KUBE_NAMESPACE: epdcs-dev
     K8S_SECRET_SPRING_PROFILES_ACTIVE: dev
     KUBE_INGRESS_BASE_DOMAIN: dev.tc.private.wiley.host
     HELM_UPGRADE_VALUES_FILE: .gitlab/auto-deploy-values-dev.yaml
+  environment:
+    name: dev
+    kubernetes:
+      namespace: ${KUBE_NAMESPACE}
+    url: https://$APP_NAME.$KUBE_INGRESS_BASE_DOMAIN
+  rules:
+    - if: '$DEV_DISABLED == "true"'
+      when: never
+    - !reference [.default-deploy-rules, rules]
 
-dev-integrationtest:
-  when: manual
-  image: artifactory.aws.wiley.com/docker/openjdk:11-jdk
-  variables:
-    APP_ENVIRONMENT: dev
-  allow_failure: true
-  extends: .dev-integration-test
-  script:
-    - ./gradlew :acceptance-test:acceptanceTest
 
-qa:
-  variables:
-    KUBE_NAMESPACE: epdcs-qa
-    K8S_SECRET_SPRING_PROFILES_ACTIVE: qa
-    KUBE_INGRESS_BASE_DOMAIN: qa.tc.wiley.host
-    HELM_UPGRADE_VALUES_FILE: .gitlab/auto-deploy-values-qa.yaml
+#review:
+#  variables:
+#    KUBE_NAMESPACE: epdcs-review
+#    K8S_SECRET_SPRING_PROFILES_ACTIVE: review
+#    HELM_UPGRADE_VALUES_FILE: .gitlab/auto-deploy-values-review.yaml
+#
+#
+#review-integrationtest:
+#  when: manual
+#  image: artifactory.aws.wiley.com/docker/openjdk:11-jdk
+#  extends: .review-integration-test
+#  variables:
+#    ENVIRONMENT_HOST: environment_url.txt
+#  script:
+#    - ./gradlew :acceptance-test:acceptanceTest
 
-qa-integrationtest:
-  when: manual
-  image: artifactory.aws.wiley.com/docker/openjdk:11-jdk
-  variables:
-    APP_ENVIRONMENT: qa
-  allow_failure: true
-  extends: .qa-integration-test
-  script:
-    - ./gradlew :acceptance-test:acceptanceTest
+#dev:
+#  variables:
+#    KUBE_NAMESPACE: epdcs-dev
+#    K8S_SECRET_SPRING_PROFILES_ACTIVE: dev
+#    KUBE_INGRESS_BASE_DOMAIN: dev.tc.private.wiley.host
+#    HELM_UPGRADE_VALUES_FILE: .gitlab/auto-deploy-values-dev.yaml
+
+#dev-integrationtest:
+#  when: manual
+#  image: artifactory.aws.wiley.com/docker/openjdk:11-jdk
+#  variables:
+#    APP_ENVIRONMENT: dev
+#  allow_failure: true
+#  extends: .dev-integration-test
+#  script:
+#    - ./gradlew :acceptance-test:acceptanceTest
+#
+#qa:
+#  variables:
+#    KUBE_NAMESPACE: epdcs-qa
+#    K8S_SECRET_SPRING_PROFILES_ACTIVE: qa
+#    KUBE_INGRESS_BASE_DOMAIN: qa.tc.wiley.host
+#    HELM_UPGRADE_VALUES_FILE: .gitlab/auto-deploy-values-qa.yaml
+#
+#qa-integrationtest:
+#  when: manual
+#  image: artifactory.aws.wiley.com/docker/openjdk:11-jdk
+#  variables:
+#    APP_ENVIRONMENT: qa
+#  allow_failure: true
+#  extends: .qa-integration-test
+#  script:
+#    - ./gradlew :acceptance-test:acceptanceTest
