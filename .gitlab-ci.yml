@@ -31,8 +31,19 @@ build:
   before_script:
     - export
     - |
-      export CI_APPLICATION_REPOSITORY=${CI_APPLICATION_REPOSITORY:-$CI_REGISTRY_IMAGE}
-      export CI_APPLICATION_TAG=${CI_APPLICATION_TAG:-v$(cat VERSION)}
+      # The VERSION is an artifact from the release job (in release pipeline) which should run before this stage.
+      if [[ -f VERSION || $CI_EXTERNAL_PULL_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH ]]; then
+        if [[ "$CI_COMMIT_BRANCH" == "$CI_DEFAULT_BRANCH" ]]; then
+          export CI_APPLICATION_REPOSITORY=${CI_APPLICATION_REPOSITORY:-$CI_REGISTRY_IMAGE}
+          export CI_APPLICATION_TAG=${CI_APPLICATION_TAG:-v$(cat VERSION)}
+        else
+          export CI_APPLICATION_REPOSITORY=${CI_APPLICATION_REPOSITORY:-$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG}
+          export CI_APPLICATION_TAG=${CI_APPLICATION_TAG:-$CI_COMMIT_SHA}
+        fi
+      else
+        echo "ERROR: A new version is not available for release, and hence not proceeding to do the build. This could be because there are no changes made since the last release, or because the commits do not follow the conventions as documented here https://confluence.wiley.com/x/ARgyCg"
+        exit 1
+      fi
   script:
     - /build/build.sh
   rules:
