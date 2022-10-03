@@ -275,7 +275,7 @@ public class HilaAT extends BaseAT {
         waitFor(() -> assertThat(client.isRunning(), is(false)), 5000);
     }
 
-    @Test(timeout = 65000)
+    @Test
     public void whenBatchLimitAndTimeoutAreSetTheyAreConsidered() {
 
         publishEvents(eventType.getName(), 12, i -> "{\"foo\":\"bar\"}");
