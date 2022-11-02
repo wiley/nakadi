@@ -23,14 +23,14 @@ dependencies {
     implementation project(':core-common')
     implementation project(':core-services')
 
-    testCompile 'org.hamcrest:hamcrest-all:1.3'
-    testCompile('org.junit.jupiter:junit-jupiter-api:5.5.2') {
+    testImplementation 'org.hamcrest:hamcrest-all:1.3'
+    testImplementation('org.junit.jupiter:junit-jupiter-api:5.5.2') {
         exclude module: "hamcrest-core"
     }
-    testCompile "org.springframework:spring-test"
-    testCompile 'org.springframework.boot:spring-boot-test'
-    testCompile 'org.springframework.boot:spring-boot-starter-test'
-    testCompile project(path: ':core-common', configuration: 'testOutput')
+    testImplementation "org.springframework:spring-test"
+    testImplementation 'org.springframework.boot:spring-boot-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation project(path: ':core-common', configuration: 'testOutput')
 }
 // end::dependencies[]
 

@@ -15,8 +15,8 @@ ext {
 
 dependencies {
     gatling "org.reflections:reflections:${reflectionsVersion}"
-    testCompile "io.gatling:gatling-app:3.8.4"
-    testCompile "io.gatling.highcharts:gatling-charts-highcharts:3.8.4"
+    testImplementation "io.gatling:gatling-app:3.8.4"
+    testImplementation "io.gatling.highcharts:gatling-charts-highcharts:3.8.4"
 }
 
 ScalaCompileOptions.metaClass.daemonServer = true
