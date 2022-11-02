@@ -31,6 +31,11 @@ resources:
   requests:
     cpu: 200m
     memory: 1Gi
+hpa:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 50
 externalSecrets:
   enabled: true
   data:
