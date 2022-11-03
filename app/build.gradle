@@ -153,7 +153,7 @@ bootJar {
     manifest {
         attributes 'Main-Class': 'org.springframework.boot.loader.PropertiesLauncher'
     }
-    mainClassName = 'org.zalando.nakadi.Application'
+    mainClass.set("org.zalando.nakadi.Application")
 }
 
 task copyDatabaseSchemas() {
