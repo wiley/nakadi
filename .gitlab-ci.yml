@@ -5,7 +5,7 @@ include:
 variables:
   APP_NAME: eventhub
   AUTO_DEVOPS_DEPLOY_DEBUG: "true"
-  AUTO_DEVOPS_BUILD_IMAGE_CNB_BUILDER: gcr.io/paketo-buildpacks/builder:0.3.98-base
+  AUTO_DEVOPS_BUILD_IMAGE_CNB_BUILDER: heroku/builder
 
 build:
   image: 'registry.gitlab.com/gitlab-org/cluster-integration/auto-build-image:v1.22.0'
