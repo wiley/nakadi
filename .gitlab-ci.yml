@@ -13,8 +13,7 @@ variables:
   TEST_DISABLED: "true"
 # INTEGRATION_TEST_DISABLED: "true"
   SONAR_DISABLED: "true"
-  AUTO_DEVOPS_BUILD_IMAGE_CNB_ENABLED: "false"
-  AUTO_DEVOPS_BUILD_IMAGE_CNB_BUILDER: "heroku/buildpacks:18"
+  AUTO_DEVOPS_BUILD_IMAGE_CNB_BUILDER: "paketobuildpacks/builder:base"
   TRACE: "true"
 
 build:
