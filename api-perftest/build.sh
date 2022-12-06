@@ -2,7 +2,7 @@
 
 CI_REGISTRY=artifactory.aws.wiley.com/docker
 CI_REGISTRY_USER=tc-gitlab
-CI_REGISTRY_PASSWORD=AKCp8jR6yGwRgeLw4u4sFSUnozrEuCGNFom4Q7TknbVHedJ4G7kkYqzapfZy4XZ59utdArSn8
+CI_REGISTRY_PASSWORD=
 
 filter_docker_warning() {
   grep -E -v "^WARNING! Your password will be stored unencrypted in |^Configure a credential helper to remove this warning. See|^https://docs.docker.com/engine/reference/commandline/login/#credentials-store" || true
