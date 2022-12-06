@@ -5,8 +5,10 @@ include:
 variables:
   APP_NAME: eventhub
   AUTO_DEVOPS_DEPLOY_DEBUG: "true"
+  AUTO_DEVOPS_BUILD_IMAGE_CNB_BUILDER: heroku/builder
 
 build:
+  image: 'registry.gitlab.com/gitlab-org/cluster-integration/auto-build-image:v1.22.0'
   variables:
     BP_JVM_VERSION: "11.*"
     BP_GRADLE_BUILT_ARTIFACT: "app/build/libs/*.[jw]ar"
