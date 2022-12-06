@@ -30,7 +30,6 @@ build:
     - pack trust-builder paketo-buildpacks/dist-zip
     - /build/build.sh
 
-    
 
 review:
   variables:
