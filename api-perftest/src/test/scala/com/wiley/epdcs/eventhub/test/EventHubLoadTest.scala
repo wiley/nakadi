@@ -1,8 +1,6 @@
-package  com.wiley.epdcs.eventhub.test
+package com.wiley.epdcs.eventhub.test
 
-import com.wiley.epdcs.eventhub.core.ConfigProvider
 import com.wiley.epdcs.eventhub.data.AssignmentEventDataFeeder
-import com.wiley.epdcs.eventhub.endpoint.AssignmentEvent
 import com.wiley.epdcs.eventhub.script.script
 import io.gatling.core.Predef._
 import io.gatling.core.scenario.Simulation
@@ -30,9 +28,29 @@ class EventHubLoadTest extends Simulation with AssignmentEventDataFeeder {
 
   setUp(
     script.create_assignment_event.inject(
-      rampUsersPerSec(1).to(120).during(10 minutes),
-      constantUsersPerSec(120).during(60 minutes),
-      rampUsersPerSec(120).to(1).during(10 minutes)
+      rampUsersPerSec(1).to(18).during(5 minutes),
+      constantUsersPerSec(18).during(60 minutes),
+      rampUsersPerSec(18).to(1).during(10 minutes)
+    ),
+    script.create_assignment_event2.inject(
+      rampUsersPerSec(1).to(18).during(10 minutes),
+      constantUsersPerSec(18).during(60 minutes),
+      rampUsersPerSec(18).to(1).during(10 minutes)
+    ),
+    script.create_assignment_event3.inject(
+      rampUsersPerSec(1).to(18).during(10 minutes),
+      constantUsersPerSec(18).during(60 minutes),
+      rampUsersPerSec(18).to(1).during(10 minutes)
+    ),
+    script.create_assignment_event4.inject(
+      rampUsersPerSec(1).to(18).during(10 minutes),
+      constantUsersPerSec(18).during(60 minutes),
+      rampUsersPerSec(18).to(1).during(10 minutes)
+    ),
+    script.create_assignment_event5.inject(
+      rampUsersPerSec(1).to(18).during(10 minutes),
+      constantUsersPerSec(18).during(60 minutes),
+      rampUsersPerSec(18).to(1).during(10 minutes)
     )
   ).protocols(httpConf)
 }
