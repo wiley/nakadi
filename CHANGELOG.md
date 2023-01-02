@@ -1,3 +1,12 @@
+## [1.2.6](https://github.com/wiley/nakadi/compare/v1.2.5...v1.2.6) (2023-01-02)
+
+
+### Bug Fixes
+
+* add new uat msk configs ([8ba6e30](https://github.com/wiley/nakadi/commit/8ba6e306adbf363fa7466e7ca628fdd678de7555))
+* reduce min sync replicas ([7a2e644](https://github.com/wiley/nakadi/commit/7a2e6447df3c6070e15d71ab5487aa0e314344fb))
+* set delivery timeout according to profile ([46986da](https://github.com/wiley/nakadi/commit/46986da28f12f1528945ae17ecf4b55fc4959297))
+
 ## [1.2.5](https://github.com/wiley/nakadi/compare/v1.2.4...v1.2.5) (2022-12-28)
 
 
