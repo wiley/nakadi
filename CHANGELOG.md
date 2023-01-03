@@ -1,6 +1,5 @@
 ## [1.2.6](https://github.com/wiley/nakadi/compare/v1.2.5...v1.2.6) (2023-01-02)
 
-
 ### Bug Fixes
 
 * add new uat msk configs ([8ba6e30](https://github.com/wiley/nakadi/commit/8ba6e306adbf363fa7466e7ca628fdd678de7555))
