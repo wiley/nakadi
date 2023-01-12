@@ -1,3 +1,12 @@
+## [1.2.8](https://github.com/wiley/nakadi/compare/v1.2.7...v1.2.8) (2023-01-12)
+
+
+### Bug Fixes
+
+* change epdcs namespaces to eventhub namespaces ([1b4e58f](https://github.com/wiley/nakadi/commit/1b4e58f4e80a137a163104e22771199f2a1b277a))
+* replace epdcs roles with eventhub roles ([3f2fabf](https://github.com/wiley/nakadi/commit/3f2fabffeaae85839891698638fed44384734d7b))
+* semantic release node version issue ([1a56a5c](https://github.com/wiley/nakadi/commit/1a56a5cd095421a9ac7b22e084e3f1c1628fb452))
+
 ## [1.2.7](https://github.com/wiley/nakadi/compare/v1.2.6...v1.2.7) (2023-01-04)
 
 
