@@ -3,7 +3,7 @@ include:
     file: autodevops-gradle.gitlab-ci.yml
     
 variables:
-  APP_NAME: eventhub
+  APP_NAME: eventhub2
   AUTO_DEVOPS_DEPLOY_DEBUG: "true"
 
 build:
