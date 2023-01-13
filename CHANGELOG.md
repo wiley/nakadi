@@ -1,3 +1,10 @@
+## [1.2.9](https://github.com/wiley/nakadi/compare/v1.2.8...v1.2.9) (2023-01-13)
+
+
+### Bug Fixes
+
+* eventhub hostname issue ([0f38441](https://github.com/wiley/nakadi/commit/0f3844113f629b94b554492d1ab39befd0fab7c0))
+
 ## [1.2.8](https://github.com/wiley/nakadi/compare/v1.2.7...v1.2.8) (2023-01-12)
 
 
