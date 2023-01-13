@@ -3,7 +3,6 @@ include:
     file: autodevops-gradle.gitlab-ci.yml
     ref: bugfix/build-issue-SRE-4227
 
-
 variables:
   APP_NAME: eventhub2
   AUTO_DEVOPS_DEPLOY_DEBUG: "true"
