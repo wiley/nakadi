@@ -1,3 +1,10 @@
+## [1.2.11](https://github.com/wiley/nakadi/compare/v1.2.10...v1.2.11) (2023-02-28)
+
+
+### Bug Fixes
+
+* increase cpu in qa environment ([26f0ff7](https://github.com/wiley/nakadi/commit/26f0ff7edba84f834b65714c1e3075f53c2f15cf))
+
 ## [1.2.10](https://github.com/wiley/nakadi/compare/v1.2.9...v1.2.10) (2023-02-27)
 
 
