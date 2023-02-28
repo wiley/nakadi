@@ -27,10 +27,10 @@ serviceAccount:
   createNew: true
 resources:
   limits:
-    cpu: 500m
+    cpu: 1000m
     memory: 2Gi
   requests:
-    cpu: 200m
+    cpu: 500m
     memory: 1Gi
 externalSecrets:
   enabled: true
