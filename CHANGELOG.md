@@ -1,3 +1,10 @@
+## [1.2.12](https://github.com/wiley/nakadi/compare/v1.2.11...v1.2.12) (2023-03-02)
+
+
+### Bug Fixes
+
+* set one replica temporary to check performance per single pod ([f37d42a](https://github.com/wiley/nakadi/commit/f37d42a644545cbd37cc15a9c4617059f68322e1))
+
 ## [1.2.11](https://github.com/wiley/nakadi/compare/v1.2.10...v1.2.11) (2023-02-28)
 
 
