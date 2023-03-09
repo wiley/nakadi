@@ -1,3 +1,10 @@
+## [1.2.14](https://github.com/wiley/nakadi/compare/v1.2.13...v1.2.14) (2023-03-09)
+
+
+### Bug Fixes
+
+* set 3 max replica temporary to check performance using minReplicas ([8cb5885](https://github.com/wiley/nakadi/commit/8cb5885ee5a3150869314604eb5220034b2fc7de))
+
 ## [1.2.13](https://github.com/wiley/nakadi/compare/v1.2.12...v1.2.13) (2023-03-08)
 
 
