@@ -1,3 +1,10 @@
+## [1.2.15](https://github.com/wiley/nakadi/compare/v1.2.14...v1.2.15) (2023-03-13)
+
+
+### Bug Fixes
+
+* set 4 max replicas and 2 min replicas to check performance ([461c96f](https://github.com/wiley/nakadi/commit/461c96f2f959a7c1af8610b51bb7bbefe2a33bad))
+
 ## [1.2.14](https://github.com/wiley/nakadi/compare/v1.2.13...v1.2.14) (2023-03-09)
 
 
