@@ -48,6 +48,6 @@ resources:
     memory: 1Gi
 hpa:
   enabled: true
-  minReplicas: 3
-  maxReplicas: 3 # limit for 3 pod to get the maximum performance per minReplicas
+  minReplicas: 2
+  maxReplicas: 4
   targetCPUUtilizationPercentage: 50
