@@ -1,3 +1,10 @@
+## [1.2.16](https://github.com/wiley/nakadi/compare/v1.2.15...v1.2.16) (2023-03-20)
+
+
+### Bug Fixes
+
+* dns change ([62d199d](https://github.com/wiley/nakadi/commit/62d199db3587ff65da9f8aa4ddc9304caf0e178d))
+
 ## [1.2.15](https://github.com/wiley/nakadi/compare/v1.2.14...v1.2.15) (2023-03-13)
 
 
