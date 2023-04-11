@@ -13,7 +13,6 @@ import org.zalando.nakadi.exceptions.runtime.NakadiRuntimeException;
 import org.zalando.nakadi.exceptions.runtime.ServiceTemporarilyUnavailableException;
 import org.zalando.nakadi.repository.EventConsumer;
 import org.zalando.nakadi.repository.TopicRepository;
-import org.zalando.nakadi.repository.kafka.KafkaFactory;
 import org.zalando.nakadi.util.NakadiCollectionUtils;
 
 import java.io.IOException;
@@ -92,8 +91,8 @@ public class MultiTimelineEventConsumer implements EventConsumer.ReassignableEve
         final List<ConsumedEvent> result;
         try {
             result = poll();
-        } catch (KafkaFactory.KafkaCrutchException kce) {
-            LOG.warn("Kafka connections should be reinitialized because consumers should be recreated", kce);
+        } catch (final RuntimeException ex) {
+            LOG.warn("Kafka connections should be reinitialized because consumers should be recreated", ex);
             final List<NakadiCursor> tmpOffsets = new ArrayList<>(latestOffsets.values());
             // close all the clients
             reassign(Collections.emptyList());
@@ -245,7 +244,7 @@ public class MultiTimelineEventConsumer implements EventConsumer.ReassignableEve
         for (final Map.Entry<TopicRepository, List<NakadiCursor>> entry : newAssignment.entrySet()) {
             if (!eventConsumers.containsKey(entry.getKey())) {
                 final TopicRepository repo = entry.getKey();
-                LOG.info("Creating underlying consumer for client id {} and cursors {}",
+                LOG.trace("client:{}, creating underlying consumer, cursors {}",
                         clientId, Arrays.deepToString(entry.getValue().toArray()));
 
                 final EventConsumer.LowLevelConsumer consumer = repo.createEventConsumer(clientId, entry.getValue());
@@ -257,6 +256,7 @@ public class MultiTimelineEventConsumer implements EventConsumer.ReassignableEve
     private void stopAndRemoveConsumer(final TopicRepository toRemove) {
         final EventConsumer realConsumer = eventConsumers.remove(toRemove);
         try {
+            LOG.trace("client:{}, about to close underlying consumer", clientId);
             realConsumer.close();
         } catch (IOException ex) {
             LOG.error("Failed to stop one of consumers, but will not care about that, " +
@@ -327,6 +327,7 @@ public class MultiTimelineEventConsumer implements EventConsumer.ReassignableEve
 
     @Override
     public void close() throws IOException {
+        LOG.trace("client:{}, closing consumers", clientId);
         try {
             reassign(Collections.emptySet());
         } catch (final InvalidCursorException e) {

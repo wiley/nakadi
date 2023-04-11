@@ -1,5 +1,6 @@
 package org.zalando.nakadi.service.publishing;
 
+import com.codahale.metrics.MetricRegistry;
 import org.apache.avro.specific.SpecificRecord;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -40,7 +41,7 @@ import org.zalando.nakadi.service.LocalSchemaRegistry;
 import org.zalando.nakadi.service.publishing.check.Check;
 import org.zalando.nakadi.service.timeline.TimelineService;
 import org.zalando.nakadi.service.timeline.TimelineSync;
-import org.zalando.nakadi.util.FlowIdUtils;
+import org.zalando.nakadi.util.MDCUtils;
 import org.zalando.nakadi.utils.EventTypeTestBuilder;
 import org.zalando.nakadi.validation.JsonSchemaValidator;
 import org.zalando.nakadi.validation.ValidationError;
@@ -52,6 +53,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 
@@ -84,6 +86,7 @@ public class EventPublisherTest {
     protected static final long TIMELINE_WAIT_TIMEOUT_MS = 1000;
     protected static final int NAKADI_SUBSCRIPTION_MAX_PARTITIONS = 8;
 
+    protected final MetricRegistry metricRegistry = mock(MetricRegistry.class);
     protected final TopicRepository topicRepository = mock(TopicRepository.class);
     protected final EventTypeCache cache = mock(EventTypeCache.class);
     protected final PartitionResolver partitionResolver = mock(PartitionResolver.class);
@@ -91,7 +94,7 @@ public class EventPublisherTest {
     protected final Enrichment enrichment = mock(Enrichment.class);
     protected final AuthorizationValidator authzValidator = mock(AuthorizationValidator.class);
     protected final TimelineService timelineService = Mockito.mock(TimelineService.class);
-    protected final NakadiSettings nakadiSettings = new NakadiSettings(0, 0, 0, TOPIC_RETENTION_TIME_MS, 0, 60,
+    protected final NakadiSettings nakadiSettings = new NakadiSettings(0, 0, 0, TOPIC_RETENTION_TIME_MS, 0, 60, 1, 2,
             NAKADI_POLL_TIMEOUT, NAKADI_SEND_TIMEOUT, TIMELINE_WAIT_TIMEOUT_MS, NAKADI_EVENT_MAX_BYTES,
             NAKADI_SUBSCRIPTION_MAX_PARTITIONS, "service", "org/zalando/nakadi", "", "",
             "nakadi_archiver", "nakadi_to_s3", 100, 10000);
@@ -108,7 +111,8 @@ public class EventPublisherTest {
 
         eventOwnerExtractorFactory = mock(EventOwnerExtractorFactory.class);
         publisher = new EventPublisher(timelineService, cache, partitionResolver, enrichment,
-                nakadiSettings, timelineSync, authzValidator, eventOwnerExtractorFactory);
+                nakadiSettings, timelineSync, authzValidator, eventOwnerExtractorFactory,
+                metricRegistry);
     }
 
     @Test
@@ -515,7 +519,7 @@ public class EventPublisherTest {
 
         final JSONObject event = new JSONObject(
                 "{\"metadata\": {\"partition_compaction_key\": \"compaction_key\"}," +
-                " \"my_field\": \"my_key\"}");
+                        " \"my_field\": \"my_key\"}");
         final JSONArray batch = new JSONArray(List.of(event));
 
         publisher.publish(batch.toString(), eventType.getName());
@@ -638,7 +642,7 @@ public class EventPublisherTest {
         final NakadiMetadata metadata = new NakadiMetadata();
         metadata.setOccurredAt(now);
         metadata.setEid("9702cf96-9bdb-48b7-9f4c-92643cb6d9fc");
-        metadata.setFlowId(FlowIdUtils.peek());
+        metadata.setFlowId(MDCUtils.getFlowId());
         metadata.setEventType("nakadi.access.log");
         metadata.setPartition("0");
         metadata.setReceivedAt(now);
@@ -666,6 +670,24 @@ public class EventPublisherTest {
         final List<NakadiRecord> records = Collections.singletonList(nakadiRecord);
         eventPublisher.publish(eventType, records);
         Mockito.verify(topicRepository).sendEvents(ArgumentMatchers.eq(topic), ArgumentMatchers.eq(records));
+    }
+
+    @Test
+    public void testUniqueEventTypePartitions() throws Exception {
+        final EventType eventType = buildDefaultEventType();
+        final JSONArray batch = buildDefaultBatch(1);
+
+        mockSuccessfulValidation(eventType);
+        Mockito.when(partitionResolver.resolvePartition(any(), any(BatchItem.class), any()))
+                .thenReturn("0");
+
+        final Set<String> uniqueEventTypePartitions = publisher.getUniqueEventTypePartitions();
+        uniqueEventTypePartitions.clear();
+        publisher.publish(batch.toString(), eventType.getName());
+
+        Assert.assertEquals(1, uniqueEventTypePartitions.size());
+        final String expectedEntry = String.format("%s:%s", eventType.getName(), 0);
+        uniqueEventTypePartitions.forEach((et) -> Assert.assertEquals(expectedEntry, et));
     }
 
     private void mockFailedPublishing() {

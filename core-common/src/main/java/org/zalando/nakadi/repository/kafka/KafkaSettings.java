@@ -25,6 +25,7 @@ public class KafkaSettings {
     private final int maxBlockMs;
     private final String clientRack;
     private final String compressionType;
+    private final int socketSendBufferBytes;
     private final String securityProtocol;
     private final String saslMechanism;
     private final String jassConfig;
@@ -45,6 +46,7 @@ public class KafkaSettings {
                          @Value("${nakadi.kafka.max.block.ms}") final int maxBlockMs,
                          @Value("${nakadi.kafka.client.rack:}") final String clientRack,
                          @Value("${nakadi.kafka.compression.type:lz4}") final String compressionType,
+                         @Value("${nakadi.kafka.socket.send.buffer.bytes:}") final int socketSendBufferBytes,
                          @Value("${nakadi.kafka..security.protocol}") final String securityProtocol,
                          @Value("${nakadi.kafka.sasl.mechanism}") final String saslMechanism,
                          @Value("${nakadi.kafka.sasl.jaas.config}") final String jassConfig,
@@ -63,6 +65,7 @@ public class KafkaSettings {
         this.maxBlockMs = maxBlockMs;
         this.clientRack = clientRack;
         this.compressionType = compressionType;
+        this.socketSendBufferBytes = socketSendBufferBytes;
         this.securityProtocol = securityProtocol;
         this.saslMechanism = saslMechanism;
         this.jassConfig = jassConfig;
@@ -117,6 +120,10 @@ public class KafkaSettings {
 
     public String getCompressionType() {
         return compressionType;
+    }
+
+    public int getSocketSendBufferBytes() {
+        return socketSendBufferBytes;
     }
 
     public String getJassConfig() {

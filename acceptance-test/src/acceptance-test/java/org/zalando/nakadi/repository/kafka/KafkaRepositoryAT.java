@@ -49,6 +49,8 @@ public class KafkaRepositoryAT extends BaseAT {
     private static final int ZK_SESSION_TIMEOUT = 30000;
     private static final int ZK_CONNECTION_TIMEOUT = 10000;
     private static final int ZK_MAX_IN_FLIGHT_REQUESTS = 1000;
+    private static final int ACTIVE_PRODUCERS_COUNT = 4;
+    private static final int TIMELAG_CHECKER_CONSUMER_POOL_SIZE = 2;
     private static final int NAKADI_SEND_TIMEOUT = 10000;
     private static final int NAKADI_POLL_TIMEOUT = 10000;
     private static final Long DEFAULT_RETENTION_TIME = 100L;
@@ -76,6 +78,7 @@ public class KafkaRepositoryAT extends BaseAT {
     private static final String DEFAULT_EVENT_TYPE_DELETABLE_SUBSCRIPTION_CONSUMER_GROUP = "nakadi_to_s3";
     private static final long DEFAULT_CURATOR_MAX_LIFETIME_MS = 1000;
     private static final long DEFAULT_CURATOR_ROTATION_MS = 10000;
+    private static final int TCP_SEND_BUFFER_SIZE = 128 * 1024;
     private static final String BOOTSTRAP_SERVERS = configs.getKafka().getBootstrapServers();
     private static final String SECURITY_PROTOCOL = configs.getKafka().getSecurityProtocol();
     private static final String SASL_MECHANISM = configs.getKafka().getSaslMechanism();
@@ -99,6 +102,8 @@ public class KafkaRepositoryAT extends BaseAT {
                 DEFAULT_TOPIC_RETENTION,
                 DEFAULT_TOPIC_ROTATION,
                 DEFAULT_COMMIT_TIMEOUT,
+                ACTIVE_PRODUCERS_COUNT,
+                TIMELAG_CHECKER_CONSUMER_POOL_SIZE,
                 NAKADI_POLL_TIMEOUT,
                 NAKADI_SEND_TIMEOUT,
                 TIMELINE_WAIT_TIMEOUT,
@@ -116,8 +121,8 @@ public class KafkaRepositoryAT extends BaseAT {
         kafkaSettings = new KafkaSettings(KAFKA_RETRIES, KAFKA_REQUEST_TIMEOUT, KAFKA_BATCH_SIZE, KAFKA_BUFFER_MEMORY,
                 KAFKA_LINGER_MS, KAFKA_MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, KAFKA_ENABLE_AUTO_COMMIT,
                 KAFKA_MAX_REQUEST_SIZE, KAFKA_DELIVERY_TIMEOUT, KAFKA_MAX_BLOCK_TIMEOUT, "",
-                KAFKA_COMPRESSION_TYPE, SECURITY_PROTOCOL, SASL_MECHANISM, JAAS_CONFIG ,CLIENT_CALLBACK_CLASS,
-                BOOTSTRAP_SERVERS, MIN_INSYNC_REPLICAS);
+                KAFKA_COMPRESSION_TYPE, TCP_SEND_BUFFER_SIZE, SECURITY_PROTOCOL, SASL_MECHANISM, JAAS_CONFIG ,
+                CLIENT_CALLBACK_CLASS, BOOTSTRAP_SERVERS, MIN_INSYNC_REPLICAS);
         kafkaHelper = new KafkaTestHelper(KAFKA_URL);
         defaultTopicConfig = new NakadiTopicConfig(DEFAULT_PARTITION_COUNT, DEFAULT_CLEANUP_POLICY,
                 Optional.of(DEFAULT_RETENTION_TIME));
@@ -304,7 +309,7 @@ public class KafkaRepositoryAT extends BaseAT {
         Mockito
                 .doReturn(kafkaHelper.createProducer())
                 .when(factory)
-                .takeProducer();
+                .takeProducer(any());
 
         return new KafkaTopicRepository.Builder()
                 .setKafkaZookeeper(kafkaZookeeper)
