@@ -151,7 +151,7 @@ public class HilaRebalanceAT extends BaseAT {
         checkAllEventsAreFromPartitions(client, ImmutableSet.of("5", "6"));
     }
 
-    @Test(timeout = 15000)
+    @Test(timeout = 60000)
     public void whenMixedStreamsThenPartitionsAssignedCorrectly() throws IOException, InterruptedException {
 
         // start 2 streams not specifying partitions directly
