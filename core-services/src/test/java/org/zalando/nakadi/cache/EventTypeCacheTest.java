@@ -151,7 +151,7 @@ public class EventTypeCacheTest {
         eventTypeCache.stopUpdates();
     }
 
-    @Test(timeout = 60000)
+    @Test(timeout = 4000)
     public synchronized void testThatCacheIsActuallyWorkingAndValueIsLoaded() throws Exception {
         final TimelineSync.ListenerRegistration listener = mock(TimelineSync.ListenerRegistration.class);
         when(timelineSync.registerTimelineChangeListener(any())).thenReturn(listener);
