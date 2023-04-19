@@ -1,3 +1,19 @@
+## [1.2.17](https://github.com/wiley/nakadi/compare/v1.2.16...v1.2.17) (2023-04-19)
+
+
+### Bug Fixes
+
+* change unit test timeout ([8a04ced](https://github.com/wiley/nakadi/commit/8a04cedcf96a0fa458b3bc1f70c44fa351b89d41))
+* ignore due to failing the test occasionally ([2d0c26d](https://github.com/wiley/nakadi/commit/2d0c26dd16e34fb04af4de1bda751e7b05101cb0))
+* increase acceptance test timeout ([ca1b2bc](https://github.com/wiley/nakadi/commit/ca1b2bcb75af96f468b8b90f9ba61ea76ad3ba06))
+* increase unit test timeout ([98278f7](https://github.com/wiley/nakadi/commit/98278f7e9164e5024d413e22f4c3443fb4740c07))
+* test pr ([f105a96](https://github.com/wiley/nakadi/commit/f105a966ef5db84e12849385b5506b7b41551377))
+
+
+### Reverts
+
+* Revert "Dedicate a Kafka producer to each of the publishing SLO buckets (#1490)" (#1492) ([e20e646](https://github.com/wiley/nakadi/commit/e20e64641f2eefbd6fbaa2b4d31f72a520024660)), closes [#1490](https://github.com/wiley/nakadi/issues/1490) [#1492](https://github.com/wiley/nakadi/issues/1492)
+
 ## [1.2.16](https://github.com/wiley/nakadi/compare/v1.2.15...v1.2.16) (2023-03-20)
 
 
