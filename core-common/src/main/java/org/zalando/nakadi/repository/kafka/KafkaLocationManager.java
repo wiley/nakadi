@@ -17,8 +17,6 @@ import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -33,13 +31,11 @@ public class KafkaLocationManager {
     private final Properties kafkaProperties;
     private final KafkaSettings kafkaSettings;
     private final ScheduledExecutorService scheduledExecutor;
-    private final Set<Runnable> ipAddressChangeListeners;
 
     public KafkaLocationManager(final ZooKeeperHolder zkFactory, final KafkaSettings kafkaSettings) {
         this.zkFactory = zkFactory;
         this.kafkaProperties = new Properties();
         this.kafkaSettings = kafkaSettings;
-        this.ipAddressChangeListeners = ConcurrentHashMap.newKeySet();
         this.scheduledExecutor = Executors.newSingleThreadScheduledExecutor();
 
         if (StringUtils.isEmpty(kafkaSettings.getBootstrapServers())) {
@@ -106,13 +102,6 @@ public class KafkaLocationManager {
         }
 
         kafkaProperties.setProperty(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        this.ipAddressChangeListeners.forEach(listener -> {
-            try {
-                listener.run();
-            } catch (final RuntimeException re) {
-                LOG.error("Failed to process listener {}", re.getMessage(), re);
-            }
-        });
         LOG.info("Kafka client bootstrap servers changed: {}", bootstrapServers);
     }
 
@@ -148,15 +137,8 @@ public class KafkaLocationManager {
         producerProps.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, kafkaSettings.getMaxRequestSize());
         producerProps.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, kafkaSettings.getDeliveryTimeoutMs());
         producerProps.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, kafkaSettings.getMaxBlockMs());
+        producerProps.put(ProducerConfig.SEND_BUFFER_CONFIG, kafkaSettings.getSocketSendBufferBytes());
         return producerProps;
-    }
-
-    public void addIpAddressChangeListener(final Runnable listener) {
-        this.ipAddressChangeListeners.add(listener);
-    }
-
-    public void removeIpAddressChangeListener(final Runnable brokerIpAddressChangeListener) {
-        this.ipAddressChangeListeners.remove(brokerIpAddressChangeListener);
     }
 
     private static class Broker implements Comparable<Broker> {

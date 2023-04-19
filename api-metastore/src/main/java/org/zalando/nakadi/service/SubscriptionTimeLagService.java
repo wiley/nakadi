@@ -23,7 +23,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
@@ -79,9 +78,9 @@ public class SubscriptionTimeLagService {
                 timeLags.put(partition, futureTimeLags.get(partition).get());
             }
         } catch (RejectedExecutionException | TimeoutException | ExecutionException e) {
-            LOG.warn("caught exception the timelag stats are not complete - " + e);
+            LOG.warn("caught exception the timelag stats are not complete: {}", e.toString());
         } catch (Throwable e) {
-            LOG.warn("caught throwable the timelag stats are not complete - " + e);
+            LOG.warn("caught throwable the timelag stats are not complete: {}", e.toString());
         }
         return timeLags;
     }
@@ -142,9 +141,10 @@ public class SubscriptionTimeLagService {
         private Duration getNextEventTimeLag(final NakadiCursor cursor) throws ErrorGettingCursorTimeLagException,
                 InconsistentStateException {
 
-            try (EventConsumer consumer = timelineService.createEventConsumer(
-                    "time-lag-checker-" + UUID.randomUUID().toString(), ImmutableList.of(cursor))) {
-
+            final String clientId = String.format("time-lag-checker-%s-%s",
+                    cursor.getEventType(), cursor.getPartition());
+            try (EventConsumer consumer = timelineService.createEventConsumer(clientId, ImmutableList.of(cursor))) {
+                LOG.trace("client:{}, reading events for lag calculation", clientId);
                 final ConsumedEvent nextEvent = executeWithRetry(
                         () -> {
                             // We ignore per event authorization here, because we are not exposing any data.
@@ -163,6 +163,8 @@ public class SubscriptionTimeLagService {
                 throw new InconsistentStateException("Unexpected error happened when getting consumer time lag", e);
             } catch (final InvalidCursorException e) {
                 throw new ErrorGettingCursorTimeLagException(cursor, e);
+            } finally {
+                LOG.trace("client:{}, finished reading events for lag calculation", clientId);
             }
         }
     }

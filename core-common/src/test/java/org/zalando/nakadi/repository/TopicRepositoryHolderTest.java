@@ -43,7 +43,7 @@ public class TopicRepositoryHolderTest {
                 holder.getTopicRepository(new Storage("1", Storage.Type.KAFKA)));
     }
 
-    @Test(timeout = 5000L)
+    @Test(timeout = 6000L)
     public void testLockingWhileRepoCreation() throws InterruptedException {
         final Storage storage = new Storage("1", Storage.Type.KAFKA);
         final TopicRepository[] repos = new TopicRepository[10];

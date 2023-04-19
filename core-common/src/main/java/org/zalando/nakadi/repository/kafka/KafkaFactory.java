@@ -1,24 +1,22 @@
 package org.zalando.nakadi.repository.kafka;
 
-import com.codahale.metrics.Counter;
-import com.codahale.metrics.MetricRegistry;
 import org.apache.kafka.clients.consumer.Consumer;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
-import java.io.Closeable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -28,32 +26,50 @@ public class KafkaFactory {
 
     private static final Logger LOG = LoggerFactory.getLogger(KafkaFactory.class);
     private final KafkaLocationManager kafkaLocationManager;
-    private final Counter useCountMetric;
-    private final Counter producerTerminations;
-    private final Map<Producer<byte[], byte[]>, AtomicInteger> useCount = new ConcurrentHashMap<>();
-    private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
-    @Nullable
-    private Producer<byte[], byte[]> activeProducer;
 
-    public KafkaFactory(final KafkaLocationManager kafkaLocationManager, final MetricRegistry metricRegistry) {
+    private final Map<Producer<byte[], byte[]>, AtomicInteger> useCount;
+    private final ReadWriteLock rwLock;
+    private final List<Producer<byte[], byte[]>> activeProducers;
+
+    private final BlockingQueue<Consumer<byte[], byte[]>> consumerPool;
+
+    public KafkaFactory(final KafkaLocationManager kafkaLocationManager,
+                        final int numActiveProducers,
+                        final int consumerPoolSize) {
         this.kafkaLocationManager = kafkaLocationManager;
-        this.useCountMetric = metricRegistry.counter("kafka.producer.use_count");
-        this.producerTerminations = metricRegistry.counter("kafka.producer.termination_count");
+
+        this.useCount = new ConcurrentHashMap<>();
+        this.rwLock = new ReentrantReadWriteLock();
+
+        LOG.info("Allocating up to {} active Kafka producers", numActiveProducers);
+        this.activeProducers = new ArrayList<>(numActiveProducers);
+        for (int i = 0; i < numActiveProducers; ++i) {
+            this.activeProducers.add(null);
+        }
+
+        LOG.info("Preparing timelag checker pool of {} Kafka consumers", consumerPoolSize);
+        this.consumerPool = new LinkedBlockingQueue(consumerPoolSize);
+        for (int i = 0; i < consumerPoolSize; ++i) {
+            this.consumerPool.add(createConsumerProxyInstance());
+        }
     }
 
     @Nullable
-    private Producer<byte[], byte[]> takeUnderLock(final boolean canCreate) {
+    private Producer<byte[], byte[]> takeUnderLock(final int index, final boolean canCreate) {
         final Lock lock = canCreate ? rwLock.writeLock() : rwLock.readLock();
         lock.lock();
         try {
-            if (null != activeProducer) {
-                useCount.get(activeProducer).incrementAndGet();
-                return activeProducer;
+            Producer<byte[], byte[]> producer = activeProducers.get(index);
+            if (null != producer) {
+                useCount.get(producer).incrementAndGet();
+                return producer;
             } else if (canCreate) {
-                activeProducer = createProducerInstance();
-                useCount.put(activeProducer, new AtomicInteger(1));
-                LOG.info("New producer instance created: " + activeProducer);
-                return activeProducer;
+                producer = createProducerInstance();
+                useCount.put(producer, new AtomicInteger(1));
+                activeProducers.set(index, producer);
+
+                LOG.info("New producer instance created: " + producer);
+                return producer;
             } else {
                 return null;
             }
@@ -62,40 +78,35 @@ public class KafkaFactory {
         }
     }
 
-    protected Producer<byte[], byte[]> createProducerInstance() {
-        return new KafkaProducerCrutch(kafkaLocationManager.getKafkaProducerProperties(),
-                new KafkaCrutch(kafkaLocationManager));
-    }
-
     /**
      * Takes producer from producer cache. Every producer, that was received by this method must be released with
      * {@link #releaseProducer(Producer)} method.
      *
      * @return Initialized kafka producer instance.
      */
-    public Producer<byte[], byte[]> takeProducer() {
-        Producer<byte[], byte[]> result = takeUnderLock(false);
+    public Producer<byte[], byte[]> takeProducer(final String topic) {
+        final int index = Math.abs(topic.hashCode() % activeProducers.size());
+
+        Producer<byte[], byte[]> result = takeUnderLock(index, false);
         if (null == result) {
-            result = takeUnderLock(true);
+            result = takeUnderLock(index, true);
         }
-        useCountMetric.inc();
         return result;
     }
 
     /**
-     * Release kafka producer that was obtained by {@link #takeProducer()} method. If producer was not obtained by
-     * {@link #takeProducer()} call - method will throw {@link NullPointerException}
+     * Release kafka producer that was obtained by {@link #takeProducer(String)} method. If producer was not obtained by
+     * {@link #takeProducer(String)} call - method will throw {@link NullPointerException}
      *
      * @param producer Producer to release.
      */
     public void releaseProducer(final Producer<byte[], byte[]> producer) {
-        useCountMetric.dec();
         final AtomicInteger counter = useCount.get(producer);
         if (counter != null && 0 == counter.decrementAndGet()) {
             final boolean deleteProducer;
             rwLock.readLock().lock();
             try {
-                deleteProducer = producer != activeProducer;
+                deleteProducer = !activeProducers.contains(producer);
             } finally {
                 rwLock.readLock().unlock();
             }
@@ -116,10 +127,11 @@ public class KafkaFactory {
 
     /**
      * Notifies producer cache, that this producer should be marked as obsolete. All methods, that are using this
-     * producer instance right now can continue using it, but new calls to {@link #takeProducer()} will use some other
-     * producers.
-     * It is allowed to call this method only between {@link #takeProducer()} and {@link #releaseProducer(Producer)}
-     * method calls. (You can not terminate something that you do not own)
+     * producer instance right now can continue using it, but new calls to {@link #takeProducer(String)}
+     * will use some other producers.
+     * It is allowed to call this method only between {@link #takeProducer(String)} and
+     * {@link #releaseProducer(Producer)} method calls.
+     * (You can not terminate something that you do not own)
      *
      * @param producer Producer instance to terminate.
      */
@@ -127,9 +139,9 @@ public class KafkaFactory {
         LOG.info("Received signal to terminate producer " + producer);
         rwLock.writeLock().lock();
         try {
-            if (producer == this.activeProducer) {
-                producerTerminations.inc();
-                this.activeProducer = null;
+            final int index = activeProducers.indexOf(producer);
+            if (index >= 0) {
+                activeProducers.set(index, null);
             } else {
                 LOG.info("Signal for producer termination already received: " + producer);
             }
@@ -138,91 +150,65 @@ public class KafkaFactory {
         }
     }
 
-    public Consumer<byte[], byte[]> getConsumer(final Properties properties) {
-        return new KafkaCrutchConsumer(properties, new KafkaCrutch(kafkaLocationManager));
+    public Consumer<byte[], byte[]> getConsumer(final String clientId) {
+        // HACK: See SubscriptionTimeLagService
+        if (clientId == null || !clientId.startsWith("time-lag-checker-")) {
+            return getConsumer();
+        }
+
+        LOG.trace("Taking timelag consumer from the pool");
+        final Consumer<byte[], byte[]> consumer;
+        try {
+            consumer = consumerPool.poll(30, TimeUnit.SECONDS);
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("interrupted while waiting for a consumer from the pool");
+        }
+        if (consumer == null) {
+            throw new RuntimeException("timed out while waiting for a consumer from the pool");
+        }
+
+        return consumer;
+    }
+
+    public void returnConsumer(final Consumer<byte[], byte[]> consumer) {
+        LOG.trace("Returning timelag consumer to the pool");
+
+        consumer.assign(Collections.emptyList());
+
+        try {
+            consumerPool.put(consumer);
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("interrupted while putting a consumer back to the pool");
+        }
     }
 
     public Consumer<byte[], byte[]> getConsumer() {
         return getConsumer(kafkaLocationManager.getKafkaConsumerProperties());
     }
 
-    public Consumer<byte[], byte[]> getConsumer(@Nullable final String clientId) {
-        final Properties properties = kafkaLocationManager.getKafkaConsumerProperties();
-        return this.getConsumer(properties);
+    private Consumer<byte[], byte[]> getConsumer(final Properties properties) {
+        return new KafkaConsumer<byte[], byte[]>(properties);
     }
 
-    public class KafkaCrutchConsumer extends KafkaConsumer<byte[], byte[]> {
+    protected Producer<byte[], byte[]> createProducerInstance() {
+        return new KafkaProducer<byte[], byte[]>(kafkaLocationManager.getKafkaProducerProperties());
+    }
 
-        private final KafkaCrutch kafkaCrutch;
+    protected Consumer<byte[], byte[]> createConsumerProxyInstance() {
+        return new KafkaConsumerProxy(kafkaLocationManager.getKafkaConsumerProperties());
+    }
 
-        public KafkaCrutchConsumer(final Properties properties, final KafkaCrutch kafkaCrutch) {
+    public class KafkaConsumerProxy extends KafkaConsumer<byte[], byte[]> {
+
+        public KafkaConsumerProxy(final Properties properties) {
             super(properties);
-            this.kafkaCrutch = kafkaCrutch;
-        }
-
-        @Override
-        public ConsumerRecords<byte[], byte[]> poll(final long timeoutMs) {
-            if (kafkaCrutch.brokerIpAddressChanged) {
-                throw new KafkaCrutchException("Kafka broker ip address changed, exiting");
-            }
-            return super.poll(timeoutMs);
         }
 
         @Override
         public void close() {
-            kafkaCrutch.close();
-            super.close();
+            returnConsumer(this);
         }
     }
-
-    public class KafkaCrutchException extends RuntimeException {
-        public KafkaCrutchException(final String message) {
-            super(message);
-        }
-    }
-
-    public class KafkaProducerCrutch extends KafkaProducer<byte[], byte[]> {
-
-        private final KafkaCrutch kafkaCrutch;
-
-        public KafkaProducerCrutch(final Properties properties, final KafkaCrutch kafkaCrutch) {
-            super(properties);
-            this.kafkaCrutch = kafkaCrutch;
-        }
-
-        @Override
-        public Future<RecordMetadata> send(final ProducerRecord<byte[], byte[]> record, final Callback callback) {
-            if (kafkaCrutch.brokerIpAddressChanged) {
-                throw new KafkaCrutchException("Kafka broker ip address changed, exiting");
-            }
-            return super.send(record, callback);
-        }
-
-        @Override
-        public void close() {
-            kafkaCrutch.close();
-            super.close();
-        }
-    }
-
-    private class KafkaCrutch implements Closeable {
-
-        private final KafkaLocationManager kafkaLocationManager;
-        private final Runnable brokerIpAddressChangeListener;
-        private volatile boolean brokerIpAddressChanged;
-
-        KafkaCrutch(final KafkaLocationManager kafkaLocationManager) {
-            this.kafkaLocationManager = kafkaLocationManager;
-            this.brokerIpAddressChangeListener = () -> brokerIpAddressChanged = true;
-            this.kafkaLocationManager.addIpAddressChangeListener(brokerIpAddressChangeListener);
-        }
-
-        @Override
-        public void close() {
-            kafkaLocationManager.removeIpAddressChangeListener(brokerIpAddressChangeListener);
-        }
-
-    }
-
-
 }

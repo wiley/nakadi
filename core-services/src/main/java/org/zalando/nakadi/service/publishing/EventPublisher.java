@@ -1,5 +1,8 @@
 package org.zalando.nakadi.service.publishing;
 
+import com.codahale.metrics.Gauge;
+import com.codahale.metrics.MetricRegistry;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.opentracing.Span;
 import io.opentracing.Tracer;
@@ -33,8 +36,10 @@ import org.zalando.nakadi.exceptions.runtime.NoSuchEventTypeException;
 import org.zalando.nakadi.exceptions.runtime.PartitioningException;
 import org.zalando.nakadi.exceptions.runtime.PublishEventOwnershipException;
 import org.zalando.nakadi.exceptions.runtime.ServiceTemporarilyUnavailableException;
+import org.zalando.nakadi.metrics.MetricUtils;
 import org.zalando.nakadi.partitioning.EventKeyExtractor;
 import org.zalando.nakadi.partitioning.PartitionResolver;
+import org.zalando.nakadi.repository.TopicRepository;
 import org.zalando.nakadi.service.AuthorizationValidator;
 import org.zalando.nakadi.service.TracingService;
 import org.zalando.nakadi.service.timeline.TimelineService;
@@ -46,6 +51,8 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -65,6 +72,8 @@ public class EventPublisher {
     private final AuthorizationValidator authValidator;
     private final EventOwnerExtractorFactory eventOwnerExtractorFactory;
 
+    private final Set<String> uniqueEventTypePartitions;
+
     @Autowired
     public EventPublisher(final TimelineService timelineService,
                           final EventTypeCache eventTypeCache,
@@ -73,7 +82,8 @@ public class EventPublisher {
                           final NakadiSettings nakadiSettings,
                           final TimelineSync timelineSync,
                           final AuthorizationValidator authValidator,
-                          final EventOwnerExtractorFactory eventOwnerExtractorFactory) {
+                          final EventOwnerExtractorFactory eventOwnerExtractorFactory,
+                          final MetricRegistry metricRegistry) {
         this.timelineService = timelineService;
         this.eventTypeCache = eventTypeCache;
         this.partitionResolver = partitionResolver;
@@ -82,6 +92,10 @@ public class EventPublisher {
         this.timelineSync = timelineSync;
         this.authValidator = authValidator;
         this.eventOwnerExtractorFactory = eventOwnerExtractorFactory;
+
+        this.uniqueEventTypePartitions = ConcurrentHashMap.newKeySet();
+        metricRegistry.register(MetricUtils.NAKADI_PREFIX + "unique-event-type-partitions",
+                (Gauge<Integer>) () -> uniqueEventTypePartitions.size());
     }
 
     public EventPublishResult publish(final String events, final String eventTypeName)
@@ -203,6 +217,9 @@ public class EventPublisher {
             try {
                 item.setPartitionKeys(keyExtractor.apply(item));
                 item.setPartition(partitionResolver.resolvePartition(eventType, item, orderedPartitions));
+
+                // just collecting some metrics
+                uniqueEventTypePartitions.add(String.format("%s:%s", eventType.getName(), item.getPartition()));
             } catch (final PartitioningException e) {
                 item.updateStatusAndDetail(EventPublishingStatus.FAILED, e.getMessage());
                 throw e;
@@ -259,9 +276,10 @@ public class EventPublisher {
                 } catch (final EventValidationException e) {
                     item.updateStatusAndDetail(EventPublishingStatus.FAILED, e.getMessage());
                     if (eventType.getCategory() != EventCategory.UNDEFINED) {
+                        TracingService.setErrorFlag();
                         TracingService.log(ImmutableMap.of(
                                 "event.id", item.getEvent().getJSONObject("metadata").getString("eid"),
-                                "error", e.getMessage()));
+                                TracingService.ERROR_DESCRIPTION, e.getMessage()));
                     }
                     throw e;
                 }
@@ -277,13 +295,20 @@ public class EventPublisher {
         final Timeline activeTimeline = timelineService.getActiveTimeline(eventType);
         final String topic = activeTimeline.getTopic();
 
+        final Tracer.SpanBuilder topicRepositorySpan = TracingService.buildNewSpan("get_topic_repository")
+                .withTag(Tags.MESSAGE_BUS_DESTINATION.getKey(), topic);
+        final TopicRepository topicRepository;
+        try (Closeable ignored = TracingService.withActiveSpan(topicRepositorySpan)) {
+            topicRepository = timelineService.getTopicRepository(eventType);
+        } catch (final IOException ioe) {
+            throw new InternalNakadiException("Error closing active span scope", ioe);
+        }
+
         final Span publishingSpan = TracingService.buildNewSpan("publishing_to_kafka")
                 .withTag(Tags.MESSAGE_BUS_DESTINATION.getKey(), topic)
                 .start();
         try (Closeable ignored = TracingService.activateSpan(publishingSpan)) {
-            timelineService
-                    .getTopicRepository(eventType)
-                    .syncPostBatch(topic, batch, eventType.getName(), delete);
+            topicRepository.syncPostBatch(topic, batch, eventType.getName(), delete);
         } catch (final EventPublishingException epe) {
             publishingSpan.log(epe.getMessage());
             throw epe;
@@ -321,5 +346,10 @@ public class EventPublisher {
 
     private EventPublishResult ok(final List<BatchItem> batch) {
         return new EventPublishResult(EventPublishingStatus.SUBMITTED, EventPublishingStep.NONE, responses(batch));
+    }
+
+    @VisibleForTesting
+    Set<String> getUniqueEventTypePartitions() {
+        return uniqueEventTypePartitions;
     }
 }

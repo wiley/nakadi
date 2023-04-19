@@ -64,6 +64,8 @@ nakadi:
     maxConnections: 5
     maxStreamMemoryBytes: 50000000 # ~50 MB
   kafka:
+    producers.count: 1
+    time-lag-checker.consumer-pool.size: 1
     bootstrap.servers: localhost:29092
     min.insync.replicas: 1
     retries: 5
@@ -82,6 +84,7 @@ nakadi:
     enable.auto.commit: false
     delivery.timeout.ms: 30000 # request.timeout.ms + linger.ms
     max.block.ms: 5000 # kafka default 60000
+    socket.send.buffer.bytes: 102400 # default in 3.3.2
     security.protocol: PLAINTEXT
     sasl.mechanism: PLAIN
     sasl.jaas.config: software.amazon.msk.auth.iam.IAMLoginModule required;
@@ -119,12 +122,6 @@ nakadi:
     timelineCleanup:
       runPeriodMs: 3600000 # 1 hour
       deletionDelayMs: 2000 # 2 seconds, to be on the safe side
-    disk-usage-stats:
-      runPeriodMs: 3600000 # 1 hour
-      authDataType: "*"
-      authValue: "*"
-      owningApplication: "stups_nakadi"
-      eventTypeName: "nakadi.disk.usage"
     consumerNodesCleanup.runPeriodMs: 21600000 # 6 hours
   http.pool.connection:
     max.total: 20
