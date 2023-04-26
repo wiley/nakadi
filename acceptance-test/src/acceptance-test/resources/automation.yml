@@ -23,7 +23,7 @@ environments:
       maxStreamMemoryBytes: 50000000 # ~50 MB
       maxCommitTimeout: 60000 # 1 minute
     kpiConfig:
-        streamDataCollectionFrequencyMs: 30000 # every half minute
+      streamDataCollectionFrequencyMs: 30000 # every half minute
   review:
     apiUrl: http://localhost
     apiPort: 8080
@@ -48,7 +48,7 @@ environments:
       maxStreamMemoryBytes: 10_000 # ~10 Kb
       maxCommitTimeout: 10000 # 10 seconds
     kpiConfig:
-        streamDataCollectionFrequencyMs: 100
+      streamDataCollectionFrequencyMs: 100
   dev:
     apiUrl: https://eventhub.dev.tc.private.wiley.host
     apiPort: 443
@@ -125,20 +125,20 @@ environments:
     kpiConfig:
       streamDataCollectionFrequencyMs: 30000 # every half minute
   prod:
-    apiUrl: http://localhost
+    apiUrl: https://eventhub.prod.tc.private.wiley.host
     apiPort: 443
-    zookeeperUrl: localhost:2181
+    zookeeperUrl: z-1.eventhubprodmskkafka.f1iuv2.c11.kafka.us-east-1.amazonaws.com:2181,z-3.eventhubprodmskkafka.f1iuv2.c11.kafka.us-east-1.amazonaws.com:2181,z-2.eventhubprodmskkafka.f1iuv2.c11.kafka.us-east-1.amazonaws.com:2181
     kafka:
-      bootstrapServers: localhost:29092
+      bootstrapServers: b-2.eventhubprodmskkafka.f1iuv2.c11.kafka.us-east-1.amazonaws.com:9098,b-1.eventhubprodmskkafka.f1iuv2.c11.kafka.us-east-1.amazonaws.com:9098
       minInSyncReplicas: 2
       replicaFactor: 2
-      securityProtocol: PLAINTEXT
-      saslMechanism: PLAIN
+      securityProtocol: SASL_SSL
+      saslMechanism: AWS_MSK_IAM
       saslJaasConfig: software.amazon.msk.auth.iam.IAMLoginModule required;
       saslClientCallbackHandlerClass: software.amazon.msk.auth.iam.IAMClientCallbackHandler
     database:
-      url: jdbc:postgresql://localhost:5432/local_nakadi_db
-      username: nakadi
+      url: jdbc:postgresql://nakadi-eventhub-prod-use1.cluster-c1z0wn5giy4n.us-east-1.rds.amazonaws.com/event_hub
+      username: event_hub_user
     eventTypeDeletableSubscription:
       owningApplication: "nakadi_archiver"
       consumerGroup: "nakadi_to_s3"
