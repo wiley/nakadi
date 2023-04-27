@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/wiley/nakadi/compare/v1.3.0...v1.3.1) (2023-04-27)
+
+
+### Bug Fixes
+
+* incorrect config of prod helm values file ([9d80eca](https://github.com/wiley/nakadi/commit/9d80eca16bdb46fe715c6c6740ae14ba6b11c84d))
+
 # [1.3.0](https://github.com/wiley/nakadi/compare/v1.2.17...v1.3.0) (2023-04-27)
 
 
