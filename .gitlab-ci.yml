@@ -129,7 +129,7 @@ prod:
     KUBE_NAMESPACE: eventhub-prod
     K8S_SECRET_SPRING_PROFILES_ACTIVE: prod
     KUBE_INGRESS_BASE_DOMAIN: prod.tc.private.wiley.host
-    HELM_UPGRADE_VALUES_FILE: .gitlab/auto-deploy-values-prod
+    HELM_UPGRADE_VALUES_FILE: .gitlab/auto-deploy-values-prod.yaml
 
 prod-integrationtest:
   when: manual
