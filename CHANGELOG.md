@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/wiley/nakadi/compare/v1.2.17...v1.3.0) (2023-04-27)
+
+
+### Features
+
+* add production configurations ([6326afb](https://github.com/wiley/nakadi/commit/6326afb8ad783bc80085d197b262acac60cd5c58))
+
 ## [1.2.17](https://github.com/wiley/nakadi/compare/v1.2.16...v1.2.17) (2023-04-19)
 
 
