@@ -122,3 +122,23 @@ uat-integrationtest:
   extends: .uat-integration-test
   script:
     - "TEST_ENV=uat POSTGRES_PWD=$EVENTHUB_DB_PASSWORD_UAT ./gradlew :acceptance-test:acceptanceTest"
+
+
+prod:
+  variables:
+    KUBE_NAMESPACE: eventhub-prod
+    K8S_SECRET_SPRING_PROFILES_ACTIVE: prod
+    KUBE_INGRESS_BASE_DOMAIN: prod.tc.private.wiley.host
+    HELM_UPGRADE_VALUES_FILE: .gitlab/auto-deploy-values-prod
+
+prod-integrationtest:
+  when: manual
+  image: artifactory.aws.wiley.com/docker/openjdk:11-jdk
+  tags:
+    - prod
+  variables:
+    APP_ENVIRONMENT: prod
+  allow_failure: true
+  extends: .prod-integration-test
+  script:
+    - "TEST_ENV=prod POSTGRES_PWD=$EVENTHUB_DB_PASSWORD_PROD ./gradlew :acceptance-test:acceptanceTest"
