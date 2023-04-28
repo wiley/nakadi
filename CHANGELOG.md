@@ -1,3 +1,10 @@
+## [1.3.2](https://github.com/wiley/nakadi/compare/v1.3.1...v1.3.2) (2023-04-28)
+
+
+### Bug Fixes
+
+* change ingressClass ([92f9025](https://github.com/wiley/nakadi/commit/92f9025fa019050fd251ff8ec945b9f22b0a6f0f))
+
 ## [1.3.1](https://github.com/wiley/nakadi/compare/v1.3.0...v1.3.1) (2023-04-27)
 
 
