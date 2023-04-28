@@ -3,7 +3,7 @@ service:
   externalPort: 5000
 ingress:
   enabled: true
-  ingressClass: "nginx-external"
+  ingressClass: "nginx"
   path: "/"
   tls:
     enabled: false
