@@ -284,7 +284,7 @@ nakadi:
       retentionMs: 172800000 # 2 days
       rotationMs: 10800000 # 3 hours
   kafka:
-    bootstrap.servers: b-2.eventhubprodmskkafka.f1iuv2.c11.kafka.us-east-1.amazonaws.com:9098,b-1.eventhubprodmskkafka.f1iuv2.c11.kafka.us-east-1.amazonaws.com:9098
+    bootstrap.servers: b-3.eventhubprodmskkafka.5cuoq7.c11.kafka.us-east-1.amazonaws.com:9098,b-1.eventhubprodmskkafka.5cuoq7.c11.kafka.us-east-1.amazonaws.com:9098,b-2.eventhubprodmskkafka.5cuoq7.c11.kafka.us-east-1.amazonaws.com:9098
     min.insync.replicas: 2
     security.protocol: SASL_SSL
     sasl.mechanism: AWS_MSK_IAM
@@ -293,7 +293,7 @@ nakadi:
     linger.ms: 200
     delivery.timeout.ms: 30200 # request.timeout.ms + linger.ms
   zookeeper:
-    connectionString: zookeeper://z-1.eventhubprodmskkafka.f1iuv2.c11.kafka.us-east-1.amazonaws.com:2181,z-3.eventhubprodmskkafka.f1iuv2.c11.kafka.us-east-1.amazonaws.com:2181,z-2.eventhubprodmskkafka.f1iuv2.c11.kafka.us-east-1.amazonaws.com:2181
+    connectionString: zookeeper://z-2.eventhubprodmskkafka.5cuoq7.c11.kafka.us-east-1.amazonaws.com:2181,z-3.eventhubprodmskkafka.5cuoq7.c11.kafka.us-east-1.amazonaws.com:2181,z-1.eventhubprodmskkafka.5cuoq7.c11.kafka.us-east-1.amazonaws.com:2181
   features.defaultFeatures:
     DISABLE_EVENT_TYPE_CREATION: false
     DISABLE_EVENT_TYPE_DELETION: false
