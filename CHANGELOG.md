@@ -1,3 +1,10 @@
+## [1.3.3](https://github.com/wiley/nakadi/compare/v1.3.2...v1.3.3) (2023-04-29)
+
+
+### Bug Fixes
+
+* update msk configurations with three broker ids ([72bc2ce](https://github.com/wiley/nakadi/commit/72bc2ce622bd9cd497b886e4807e0574550cdbd8))
+
 ## [1.3.2](https://github.com/wiley/nakadi/compare/v1.3.1...v1.3.2) (2023-04-28)
 
 
