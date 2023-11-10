@@ -280,7 +280,7 @@ nakadi:
       retentionMs: 345600000 # 4 days
     default:
       partitionNum: 1
-      replicaFactor: 2
+      replicaFactor: 3
       retentionMs: 172800000 # 2 days
       rotationMs: 10800000 # 3 hours
   kafka:
