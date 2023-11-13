@@ -1,3 +1,11 @@
+## [1.3.4](https://github.com/wiley/nakadi/compare/v1.3.3...v1.3.4) (2023-11-13)
+
+
+### Bug Fixes
+
+* set replicaFactor as 3 in prod config ([c1952cd](https://github.com/wiley/nakadi/commit/c1952cd0cd0a611b7942d0388152abe1658ff8b6))
+* set replication factor as 3 in prod config ([50b5f84](https://github.com/wiley/nakadi/commit/50b5f84342536a6afcabfd746450eb545c65a71e))
+
 ## [1.3.3](https://github.com/wiley/nakadi/compare/v1.3.2...v1.3.3) (2023-04-29)
 
 
